@@ -369,6 +369,8 @@ def scrape_website(url: str, use_playwright_fallback: bool = True, progress_call
     contact_emails = list(all_emails)
     if contact_emails:
         _log(f"Found {len(contact_emails)} contact email(s): {', '.join(contact_emails)}")
+    else:
+        _log("No contact emails found on this website")
 
     result = ScrapedWebsite(
         base_url=url,

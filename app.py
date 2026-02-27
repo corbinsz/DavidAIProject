@@ -599,6 +599,7 @@ def init_session_state():
         "scrape_logs": [],
         "email_subject": "",
         "email_body": "",
+        "pipeline_run_id": 0,
         "send_result": None,
         "batch_results": [],
         # Sidebar config defaults from env vars
@@ -768,6 +769,7 @@ def render_single_mode():
         st.session_state["pipeline_result"] = result
         st.session_state["email_subject"] = result.draft.subject
         st.session_state["email_body"] = result.draft.body
+        st.session_state["pipeline_run_id"] = st.session_state.get("pipeline_run_id", 0) + 1
 
     # --- Display Results ---
     result: PipelineResult = st.session_state.get("pipeline_result")
@@ -871,20 +873,23 @@ def render_single_mode():
         )
         st.caption("Enter the recipient's email and click send. Requires Gmail credentials in the sidebar. Nothing sends without your explicit confirmation.")
 
-        # Auto-fill from scraped contact emails if available
+        # Show scraped contact emails if available
         default_to = ""
-        email_help = "The email address of the person you want to reach out to at this company."
         if result.scraped and result.scraped.contact_emails:
-            default_to = result.scraped.contact_emails[0]
-            if len(result.scraped.contact_emails) > 1:
-                others = ", ".join(result.scraped.contact_emails[1:])
-                email_help += f" Also found: {others}"
+            emails = result.scraped.contact_emails
+            default_to = emails[0]
+            st.success(f"Found {len(emails)} contact email(s) on their website: **{', '.join(emails)}**")
+        else:
+            st.caption("No contact emails found on the website — enter one manually.")
 
+        # Dynamic key forces a fresh widget each pipeline run so value= is respected
+        run_id = st.session_state.get("pipeline_run_id", 0)
         to_address = st.text_input(
             "Recipient Email Address",
             value=default_to,
+            key=f"to_address_{run_id}",
             placeholder="prospect@company.com",
-            help=email_help,
+            help="The email address of the person you want to reach out to at this company.",
         )
 
         col_send, col_regen = st.columns(2)
