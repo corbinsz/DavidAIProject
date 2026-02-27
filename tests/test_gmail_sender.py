@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 
-from src.gmail_sender import send_email, get_outreach_log, _log_outreach
+from src.gmail_sender import send_email, get_outreach_log, _log_outreach, update_outreach_record
 from src.models import EmailDraft, OutreachRecord
 
 
@@ -132,3 +132,64 @@ class TestOutreachLog:
         with patch("src.gmail_sender.LOG_DIR", tmp_path):
             records = get_outreach_log()
         assert records == []
+
+
+def _seed_log(tmp_path, count=2):
+    """Helper: create a log file with `count` records, return records list."""
+    records = []
+    for i in range(count):
+        records.append(
+            OutreachRecord(
+                prospect_url=f"https://example{i}.com",
+                prospect_name=f"Company {i}",
+                recipient_email=f"contact{i}@example.com",
+                email_subject=f"Subject {i}",
+                email_body=f"Body {i}",
+                status="sent",
+            ).model_dump()
+        )
+    log_file = tmp_path / "outreach_log.json"
+    log_file.write_text(json.dumps(records, indent=2))
+    return records
+
+
+class TestUpdateOutreachRecord:
+    def test_update_single_field(self, tmp_path):
+        _seed_log(tmp_path)
+        with patch("src.gmail_sender.LOG_DIR", tmp_path):
+            updated = update_outreach_record(0, opened_at="2025-01-15T10:30:00")
+        assert updated.opened_at == "2025-01-15T10:30:00"
+        assert updated.prospect_name == "Company 0"
+
+    def test_update_multiple_fields(self, tmp_path):
+        _seed_log(tmp_path)
+        with patch("src.gmail_sender.LOG_DIR", tmp_path):
+            updated = update_outreach_record(
+                1,
+                follow_up_date="2025-01-20",
+                notes="Call scheduled",
+            )
+        assert updated.follow_up_date == "2025-01-20"
+        assert updated.notes == "Call scheduled"
+
+    def test_index_out_of_range(self, tmp_path):
+        _seed_log(tmp_path, count=2)
+        with patch("src.gmail_sender.LOG_DIR", tmp_path):
+            with pytest.raises(IndexError):
+                update_outreach_record(5, opened_at="2025-01-15T10:30:00")
+
+    def test_invalid_field_name(self, tmp_path):
+        _seed_log(tmp_path)
+        with patch("src.gmail_sender.LOG_DIR", tmp_path):
+            with pytest.raises(ValueError, match="Invalid field"):
+                update_outreach_record(0, nonexistent_field="value")
+
+    def test_preserves_other_records(self, tmp_path):
+        _seed_log(tmp_path, count=3)
+        with patch("src.gmail_sender.LOG_DIR", tmp_path):
+            update_outreach_record(1, notes="Updated")
+            records = get_outreach_log()
+        assert len(records) == 3
+        assert records[0].notes is None
+        assert records[1].notes == "Updated"
+        assert records[2].notes is None

@@ -58,6 +58,43 @@ def get_outreach_log() -> list[OutreachRecord]:
         return []
 
 
+def update_outreach_record(index: int, **fields) -> OutreachRecord:
+    """
+    Update specific fields of an outreach record by index.
+
+    Args:
+        index: Zero-based index into the outreach log list.
+        **fields: Field names and values to update (must be valid OutreachRecord fields).
+
+    Returns:
+        The updated OutreachRecord.
+
+    Raises:
+        IndexError: If index is out of range.
+        ValueError: If any field name is not a valid OutreachRecord field.
+    """
+    log_file = LOG_DIR / "outreach_log.json"
+    records = []
+    if log_file.exists():
+        try:
+            records = json.loads(log_file.read_text())
+        except (json.JSONDecodeError, OSError):
+            records = []
+
+    if index < 0 or index >= len(records):
+        raise IndexError(f"Record index {index} out of range (0-{len(records) - 1})")
+
+    valid_fields = set(OutreachRecord.model_fields.keys())
+    for key in fields:
+        if key not in valid_fields:
+            raise ValueError(f"Invalid field '{key}' — valid fields: {sorted(valid_fields)}")
+
+    records[index].update(fields)
+    log_file.write_text(json.dumps(records, indent=2))
+    logger.info(f"Updated record {index}: {list(fields.keys())}")
+    return OutreachRecord(**records[index])
+
+
 def send_email(
     draft: EmailDraft,
     to_address: str,

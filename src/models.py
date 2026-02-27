@@ -51,3 +51,8 @@ class OutreachRecord(BaseModel):
     email_body: str
     status: str = "drafted"  # drafted, sent, failed
     error_message: Optional[str] = None
+    # --- Tracking & Follow-Up Fields ---
+    opened_at: Optional[str] = None       # ISO timestamp when marked opened
+    replied_at: Optional[str] = None      # ISO timestamp when marked replied
+    follow_up_date: Optional[str] = None  # ISO date (YYYY-MM-DD) for scheduled follow-up
+    notes: Optional[str] = None           # Free-text notes

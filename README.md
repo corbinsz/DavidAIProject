@@ -20,7 +20,7 @@ URL Input → Web Scraper → LLM Analysis → Email Draft → Review/Confirm �
 | Email Sending    | Gmail SMTP with App Password                     |
 | Interface        | Streamlit web UI                                 |
 | Data Models      | Pydantic v2                                      |
-| Testing          | pytest (61 tests across 6 modules)               |
+| Testing          | pytest (69 tests across 6 modules)               |
 
 ### Project Structure
 
@@ -115,7 +115,7 @@ The app opens at `http://localhost:8501`.
 pytest tests/ -v
 ```
 
-All 61 tests should pass. Tests use mocks — no API keys or network needed.
+All 69 tests should pass. Tests use mocks — no API keys or network needed.
 
 ---
 
@@ -146,6 +146,14 @@ All 61 tests should pass. Tests use mocks — no API keys or network needed.
 - Smart retry logic: retries transient failures (3 attempts), does NOT retry auth or recipient errors
 - Logs every attempt to `logs/outreach_log.json` with full CRM-style records
 
+### Phase 5: Email Tracking & Follow-Ups (`app.py` + `src/gmail_sender.py`)
+- Manual tracking: mark emails as opened or replied with timestamped status updates
+- Follow-up scheduling: set follow-up dates per email, with overdue/upcoming indicators
+- Follow-Up Dashboard tab: dedicated view showing overdue and upcoming follow-ups with snooze controls
+- Post-send scheduling: after sending an email, optionally set a follow-up date and note
+- Notes field: attach free-text notes to any outreach record
+- Note: tracking is manual (not pixel-based) because Streamlit cannot host a tracking pixel endpoint. This is a practical and honest approach for a demo — the data model supports automated tracking if a backend is added later.
+
 ---
 
 ## Features
@@ -158,7 +166,10 @@ All 61 tests should pass. Tests use mocks — no API keys or network needed.
 - **Email editing**: Review and modify drafts before sending
 - **Draft regeneration**: Generate alternative email versions on demand
 - **Error handling**: Graceful failures at every stage with retry logic
-- **Test suite**: 61 tests covering all core modules
+- **Email tracking**: Mark emails as opened/replied with timestamps
+- **Follow-up scheduling**: Set follow-up dates, snooze overdue items, manage pipeline
+- **Follow-up dashboard**: Dedicated view for overdue and upcoming follow-ups
+- **Test suite**: 69 tests covering all core modules
 
 ---
 
@@ -204,5 +215,5 @@ All 61 tests should pass. Tests use mocks — no API keys or network needed.
 - **Playwright** — Headless browser fallback for JS-rendered sites
 - **Streamlit** — Web UI framework
 - **Pydantic v2** — Data validation and serialization
-- **pytest** — Test framework (61 tests)
+- **pytest** — Test framework (69 tests)
 - **python-dotenv** — Environment variable management

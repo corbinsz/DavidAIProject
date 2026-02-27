@@ -6,11 +6,12 @@ drafts personalized outreach emails, and sends them via Gmail.
 
 import os
 import html as html_module
+from datetime import date, timedelta, datetime
 import streamlit as st
 from dotenv import load_dotenv
 
 from src.agent import OutreachAgent, AgentConfig, PipelineResult
-from src.gmail_sender import get_outreach_log
+from src.gmail_sender import get_outreach_log, update_outreach_record
 from src.models import EmailDraft
 
 load_dotenv()
@@ -458,6 +459,42 @@ div[data-testid="stMetric"] label {
     background: rgba(74, 143, 217, 0.1);
     color: #3a7fc0;
 }
+.status-opened {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: rgba(220, 140, 30, 0.12);
+    color: #b87a10;
+}
+.status-replied {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    background: rgba(34, 154, 60, 0.12);
+    color: #1a7a30;
+}
+.follow-up-due {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    background: rgba(220, 53, 69, 0.1);
+    color: #c42d3e;
+}
+.follow-up-upcoming {
+    display: inline-block;
+    padding: 0.2rem 0.6rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    background: rgba(74, 143, 217, 0.1);
+    color: #3a7fc0;
+}
 
 /* ===== Company Overview Grid ===== */
 .overview-grid {
@@ -521,6 +558,7 @@ SVG_SEND = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="no
 SVG_GRID = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/></svg>'
 SVG_DOC = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg>'
 SVG_CLIPBOARD = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="8" y="2" width="8" height="4" rx="1" ry="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/></svg>'
+SVG_CALENDAR = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>'
 
 
 def section_header(title: str, subtitle: str, svg: str, color: str) -> str:
@@ -877,6 +915,39 @@ def render_single_mode():
     if send_result and send_result.status == "sent":
         st.balloons()
 
+        # --- Post-Send Follow-Up Scheduling ---
+        st.markdown("---")
+        st.markdown(
+            section_header("Schedule Follow-Up", "Set a reminder to follow up", SVG_CALENDAR, "orange"),
+            unsafe_allow_html=True,
+        )
+        st.caption("Optionally schedule a follow-up date for this email. You can manage follow-ups from the Follow-Ups tab.")
+
+        fu_col1, fu_col2 = st.columns([1, 2])
+        with fu_col1:
+            fu_date = st.date_input(
+                "Follow-up date",
+                value=date.today() + timedelta(days=3),
+                key="post_send_fu_date",
+            )
+        with fu_col2:
+            fu_note = st.text_input(
+                "Note (optional)",
+                key="post_send_fu_note",
+                placeholder="e.g. Check if they opened it",
+            )
+
+        if st.button("Save Follow-Up", key="post_send_fu_save"):
+            # Find the most recent record matching this send
+            records = get_outreach_log()
+            if records:
+                last_idx = len(records) - 1
+                updates = {"follow_up_date": fu_date.isoformat()}
+                if fu_note:
+                    updates["notes"] = fu_note
+                update_outreach_record(last_idx, **updates)
+                st.success(f"Follow-up scheduled for {fu_date.isoformat()}")
+
 
 def render_batch_mode():
     """Render the batch processing mode."""
@@ -954,12 +1025,12 @@ def render_batch_mode():
 
 
 def render_outreach_log():
-    """Render the CRM-style outreach log."""
+    """Render the CRM-style outreach log with tracking controls."""
     st.markdown(
-        section_header("Outreach Log", "CRM-style history of sent emails", SVG_DOC, "purple"),
+        section_header("Outreach Log", "CRM-style history with tracking", SVG_DOC, "purple"),
         unsafe_allow_html=True,
     )
-    st.caption("A CRM-style history of every outreach email sent through this tool — including status, recipient, subject, and body. Logged to logs/outreach_log.json.")
+    st.caption("Track every outreach email — mark as opened/replied, schedule follow-ups, and add notes.")
 
     records = get_outreach_log()
 
@@ -967,26 +1038,226 @@ def render_outreach_log():
         st.info("No outreach attempts logged yet. Send an email to see it here.")
         return
 
-    for record in reversed(records):
-        if record.status == "sent":
-            status_html = '<span class="status-sent">[SENT]</span>'
-        elif record.status == "failed":
-            status_html = '<span class="status-failed">[FAILED]</span>'
-        else:
-            status_html = '<span class="status-draft">[DRAFT]</span>'
+    # --- Summary Metrics ---
+    total = len(records)
+    sent = sum(1 for r in records if r.status == "sent")
+    opened = sum(1 for r in records if r.opened_at)
+    replied = sum(1 for r in records if r.replied_at)
+    today_str = date.today().isoformat()
+    due_follow_ups = sum(
+        1 for r in records
+        if r.follow_up_date and r.follow_up_date <= today_str and not r.replied_at
+    )
 
-        with st.expander(f"{record.status.upper()} | {record.prospect_name or record.prospect_url} → {record.recipient_email}"):
+    m1, m2, m3, m4, m5 = st.columns(5)
+    m1.metric("Total", total)
+    m2.metric("Sent", sent)
+    m3.metric("Opened", opened)
+    m4.metric("Replied", replied)
+    m5.metric("Due Follow-Ups", due_follow_ups)
+
+    st.markdown("---")
+
+    # --- Record List ---
+    for idx, record in enumerate(records):
+        # Determine best status badge
+        if record.replied_at:
+            status_html = '<span class="status-replied">REPLIED</span>'
+            badge = "REPLIED"
+        elif record.opened_at:
+            status_html = '<span class="status-opened">OPENED</span>'
+            badge = "OPENED"
+        elif record.status == "sent":
+            status_html = '<span class="status-sent">SENT</span>'
+            badge = "SENT"
+        elif record.status == "failed":
+            status_html = '<span class="status-failed">FAILED</span>'
+            badge = "FAILED"
+        else:
+            status_html = '<span class="status-draft">DRAFT</span>'
+            badge = "DRAFT"
+
+        # Follow-up indicator for expander label
+        fu_label = ""
+        if record.follow_up_date and not record.replied_at:
+            if record.follow_up_date <= today_str:
+                fu_label = " | FOLLOW-UP DUE"
+            else:
+                fu_label = f" | Follow-up: {record.follow_up_date}"
+
+        expander_label = f"{badge} | {record.prospect_name or record.prospect_url} → {record.recipient_email}{fu_label}"
+
+        with st.expander(expander_label):
             st.markdown(status_html, unsafe_allow_html=True)
             col1, col2, col3 = st.columns(3)
-            col1.metric("Status", record.status.upper())
+            col1.metric("Status", badge)
             col2.metric("Recipient", record.recipient_email)
             col3.metric("Time", record.timestamp[:19])
 
+            # Follow-up date display
+            if record.follow_up_date and not record.replied_at:
+                if record.follow_up_date <= today_str:
+                    days_overdue = (date.today() - date.fromisoformat(record.follow_up_date)).days
+                    st.markdown(
+                        f'<span class="follow-up-due">FOLLOW-UP OVERDUE by {days_overdue} day(s)</span>',
+                        unsafe_allow_html=True,
+                    )
+                else:
+                    st.markdown(
+                        f'<span class="follow-up-upcoming">Follow-up scheduled: {record.follow_up_date}</span>',
+                        unsafe_allow_html=True,
+                    )
+
             st.markdown(f"**Subject:** {record.email_subject}")
-            st.text_area("Body", value=record.email_body, height=150, key=f"log_{record.timestamp}", disabled=True)
+            st.text_area("Body", value=record.email_body, height=150, key=f"log_body_{idx}", disabled=True)
 
             if record.error_message:
                 st.error(f"Error: {record.error_message}")
+
+            # Notes display
+            if record.notes:
+                st.markdown(f"**Notes:** {record.notes}")
+
+            # --- Tracking Actions (only for sent emails) ---
+            if record.status == "sent":
+                st.markdown("---")
+                act_cols = st.columns(4)
+
+                with act_cols[0]:
+                    if not record.opened_at:
+                        if st.button("Mark as Opened", key=f"open_{idx}"):
+                            update_outreach_record(idx, opened_at=datetime.now().isoformat())
+                            st.rerun()
+                    else:
+                        st.caption(f"Opened: {record.opened_at[:19]}")
+
+                with act_cols[1]:
+                    if not record.replied_at:
+                        if st.button("Mark as Replied", key=f"reply_{idx}"):
+                            update_outreach_record(idx, replied_at=datetime.now().isoformat())
+                            st.rerun()
+                    else:
+                        st.caption(f"Replied: {record.replied_at[:19]}")
+
+                with act_cols[2]:
+                    if not record.follow_up_date and not record.replied_at:
+                        fu_date = st.date_input(
+                            "Follow-up date",
+                            value=date.today() + timedelta(days=3),
+                            key=f"fu_date_{idx}",
+                        )
+                        if st.button("Set Follow-Up", key=f"fu_set_{idx}"):
+                            update_outreach_record(idx, follow_up_date=fu_date.isoformat())
+                            st.rerun()
+
+                with act_cols[3]:
+                    new_note = st.text_input("Add note", key=f"note_input_{idx}", placeholder="e.g. Spoke with VP")
+                    if st.button("Save Note", key=f"note_save_{idx}") and new_note:
+                        existing = record.notes or ""
+                        combined = f"{existing}\n{new_note}".strip() if existing else new_note
+                        update_outreach_record(idx, notes=combined)
+                        st.rerun()
+
+
+def render_follow_up_dashboard():
+    """Render the follow-up scheduling dashboard."""
+    st.markdown(
+        section_header("Follow-Up Dashboard", "Upcoming and overdue follow-ups", SVG_CALENDAR, "orange"),
+        unsafe_allow_html=True,
+    )
+    st.caption("Track scheduled follow-ups. Overdue items appear first. Snooze or mark as replied to manage your pipeline.")
+
+    records = get_outreach_log()
+    today = date.today()
+    today_str = today.isoformat()
+
+    # Filter to records with follow-up dates that haven't been replied to
+    follow_ups = [
+        (idx, r) for idx, r in enumerate(records)
+        if r.follow_up_date and not r.replied_at
+    ]
+
+    if not follow_ups:
+        st.info("No follow-ups scheduled. Send emails and set follow-up dates from the Outreach Log tab.")
+        return
+
+    # Split into overdue and upcoming
+    overdue = [(i, r) for i, r in follow_ups if r.follow_up_date <= today_str]
+    upcoming = [(i, r) for i, r in follow_ups if today_str < r.follow_up_date <= (today + timedelta(days=7)).isoformat()]
+    later = [(i, r) for i, r in follow_ups if r.follow_up_date > (today + timedelta(days=7)).isoformat()]
+
+    # --- Overdue ---
+    if overdue:
+        st.markdown(f"### Overdue ({len(overdue)})")
+        for idx, record in overdue:
+            days_overdue = (today - date.fromisoformat(record.follow_up_date)).days
+            with st.expander(
+                f"OVERDUE ({days_overdue}d) | {record.prospect_name or record.prospect_url} → {record.recipient_email}"
+            ):
+                st.markdown(
+                    f'<span class="follow-up-due">OVERDUE by {days_overdue} day(s)</span>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown(f"**Subject:** {record.email_subject}")
+                if record.notes:
+                    st.markdown(f"**Notes:** {record.notes}")
+
+                c1, c2 = st.columns(2)
+                with c1:
+                    if st.button("Mark as Replied", key=f"fu_reply_{idx}"):
+                        update_outreach_record(idx, replied_at=datetime.now().isoformat())
+                        st.rerun()
+                with c2:
+                    snooze_days = st.selectbox(
+                        "Snooze",
+                        options=[1, 2, 3, 5, 7],
+                        index=0,
+                        key=f"snooze_sel_{idx}",
+                    )
+                    if st.button("Snooze", key=f"snooze_{idx}"):
+                        new_date = (today + timedelta(days=snooze_days)).isoformat()
+                        update_outreach_record(idx, follow_up_date=new_date)
+                        st.rerun()
+
+    # --- Upcoming (next 7 days) ---
+    if upcoming:
+        st.markdown(f"### Upcoming — Next 7 Days ({len(upcoming)})")
+        for idx, record in upcoming:
+            days_until = (date.fromisoformat(record.follow_up_date) - today).days
+            with st.expander(
+                f"In {days_until}d ({record.follow_up_date}) | {record.prospect_name or record.prospect_url} → {record.recipient_email}"
+            ):
+                st.markdown(
+                    f'<span class="follow-up-upcoming">Follow-up in {days_until} day(s)</span>',
+                    unsafe_allow_html=True,
+                )
+                st.markdown(f"**Subject:** {record.email_subject}")
+                if record.notes:
+                    st.markdown(f"**Notes:** {record.notes}")
+
+                c1, c2 = st.columns(2)
+                with c1:
+                    if st.button("Mark as Replied", key=f"fu_reply_{idx}"):
+                        update_outreach_record(idx, replied_at=datetime.now().isoformat())
+                        st.rerun()
+                with c2:
+                    snooze_days = st.selectbox(
+                        "Snooze",
+                        options=[1, 2, 3, 5, 7],
+                        index=0,
+                        key=f"snooze_sel_{idx}",
+                    )
+                    if st.button("Snooze", key=f"snooze_{idx}"):
+                        new_date = (date.fromisoformat(record.follow_up_date) + timedelta(days=snooze_days)).isoformat()
+                        update_outreach_record(idx, follow_up_date=new_date)
+                        st.rerun()
+
+    # --- Later ---
+    if later:
+        st.markdown(f"### Later ({len(later)})")
+        for idx, record in later:
+            days_until = (date.fromisoformat(record.follow_up_date) - today).days
+            st.markdown(f"- **{record.follow_up_date}** ({days_until}d) — {record.prospect_name or record.prospect_url} → {record.recipient_email}")
 
 
 # --- Main App ---
@@ -1032,7 +1303,7 @@ def main():
 Gmail credentials are only needed at step 4 (sending).
         """)
 
-    tab1, tab2, tab3 = st.tabs(["Single Outreach", "Batch Mode", "Outreach Log"])
+    tab1, tab2, tab3, tab4 = st.tabs(["Single Outreach", "Batch Mode", "Outreach Log", "Follow-Ups"])
 
     with tab1:
         render_single_mode()
@@ -1042,6 +1313,9 @@ Gmail credentials are only needed at step 4 (sending).
 
     with tab3:
         render_outreach_log()
+
+    with tab4:
+        render_follow_up_dashboard()
 
 
 if __name__ == "__main__":

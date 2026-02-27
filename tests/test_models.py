@@ -110,3 +110,52 @@ class TestOutreachRecord:
         )
         assert record.status == "failed"
         assert record.error_message == "SMTP timeout"
+
+    def test_tracking_fields_default_none(self):
+        record = OutreachRecord(
+            prospect_url="https://example.com",
+            prospect_name="Example",
+            recipient_email="test@example.com",
+            email_subject="Hi",
+            email_body="Hello",
+        )
+        assert record.opened_at is None
+        assert record.replied_at is None
+        assert record.follow_up_date is None
+        assert record.notes is None
+
+    def test_tracking_fields_round_trip(self):
+        record = OutreachRecord(
+            prospect_url="https://example.com",
+            prospect_name="Example",
+            recipient_email="test@example.com",
+            email_subject="Hi",
+            email_body="Hello",
+            opened_at="2025-01-15T10:30:00",
+            replied_at="2025-01-16T14:00:00",
+            follow_up_date="2025-01-18",
+            notes="Spoke with VP of Engineering",
+        )
+        data = record.model_dump()
+        restored = OutreachRecord(**data)
+        assert restored.opened_at == "2025-01-15T10:30:00"
+        assert restored.replied_at == "2025-01-16T14:00:00"
+        assert restored.follow_up_date == "2025-01-18"
+        assert restored.notes == "Spoke with VP of Engineering"
+
+    def test_backward_compat_without_tracking_fields(self):
+        """Records created before tracking fields should still load."""
+        old_data = {
+            "timestamp": "2025-01-10T09:00:00",
+            "prospect_url": "https://example.com",
+            "prospect_name": "Example",
+            "recipient_email": "test@example.com",
+            "email_subject": "Hi",
+            "email_body": "Hello",
+            "status": "sent",
+            "error_message": None,
+        }
+        record = OutreachRecord(**old_data)
+        assert record.status == "sent"
+        assert record.opened_at is None
+        assert record.follow_up_date is None
