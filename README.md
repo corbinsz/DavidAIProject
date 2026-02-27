@@ -44,7 +44,6 @@ DavidAIProject/
 ├── logs/                   # CRM-style outreach log (generated at runtime)
 ├── .streamlit/config.toml  # Streamlit theme configuration
 ├── requirements.txt
-├── .env.example
 └── .gitignore
 ```
 
@@ -55,7 +54,7 @@ DavidAIProject/
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/YOUR_USERNAME/DavidAIProject.git
+git clone https://github.com/corbinsz/DavidAIProject.git
 cd DavidAIProject
 ```
 
@@ -80,11 +79,7 @@ playwright install chromium
 
 ### 4. Set Up Environment Variables
 
-```bash
-cp .env.example .env
-```
-
-Edit `.env` with your values:
+Create a `.env` file in the project root:
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...your-key-here
@@ -92,6 +87,8 @@ GMAIL_ADDRESS=your-email@gmail.com
 GMAIL_APP_PASSWORD=your-16-char-app-password
 SENDER_NAME=Your Name
 ```
+
+Or skip this step and enter credentials directly in the sidebar UI.
 
 #### Getting a Gmail App Password
 
