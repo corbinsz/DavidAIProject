@@ -42,14 +42,30 @@ html, body, [class*="css"] {
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
 }
 .main .block-container {
-    padding-top: 2rem;
+    padding-top: 0 !important;
     padding-bottom: 2rem;
-    max-width: 1100px;
+    max-width: 960px;
+    margin: 0 auto;
 }
-/* Hide Streamlit default header / footer */
-#MainMenu {visibility: hidden;}
-footer {visibility: hidden;}
-header[data-testid="stHeader"] { background: transparent; }
+/* Kill the top gap Streamlit injects */
+.appview-container .main {
+    padding-top: 0 !important;
+}
+.appview-container {
+    margin-top: -4rem !important;
+}
+/* Hide Streamlit default header / footer / deploy button */
+#MainMenu {visibility: hidden !important;}
+footer {visibility: hidden !important;}
+header[data-testid="stHeader"] {
+    background: transparent !important;
+    height: 0 !important;
+    min-height: 0 !important;
+    padding: 0 !important;
+}
+[data-testid="stDecoration"] { display: none !important; }
+[data-testid="stToolbar"] { display: none !important; }
+[data-testid="stStatusWidget"] { display: none !important; }
 
 /* ===== Sidebar ===== */
 section[data-testid="stSidebar"] {
@@ -119,7 +135,7 @@ section[data-testid="stSidebar"] hr {
 }
 
 /* ===== Tab Bar ===== */
-div[data-testid="stTabs"] > div[role="tablist"] {
+div[data-testid="stTabs"] [role="tablist"] {
     background: #f5f7fa;
     border-radius: 12px;
     padding: 4px;
@@ -127,28 +143,32 @@ div[data-testid="stTabs"] > div[role="tablist"] {
     border: 1px solid #e2e6ec;
 }
 div[data-testid="stTabs"] button[role="tab"] {
-    border-radius: 9px;
-    padding: 0.5rem 1.25rem;
-    font-weight: 600;
-    font-size: 0.88rem;
-    color: #6b7685;
-    border: none;
-    background: transparent;
+    border-radius: 9px !important;
+    padding: 0.5rem 1.25rem !important;
+    font-weight: 600 !important;
+    font-size: 0.88rem !important;
+    color: #6b7685 !important;
+    border: none !important;
+    background: transparent !important;
     transition: all 0.2s;
 }
 div[data-testid="stTabs"] button[role="tab"][aria-selected="true"] {
-    background: #ffffff;
-    color: #1e2a3a;
+    background: #ffffff !important;
+    color: #1e2a3a !important;
     box-shadow: 0 1px 4px rgba(0,0,0,0.08);
 }
 div[data-testid="stTabs"] button[role="tab"]:hover:not([aria-selected="true"]) {
-    background: rgba(0, 0, 0, 0.03);
-    color: #3d4a5c;
+    background: rgba(0, 0, 0, 0.03) !important;
+    color: #3d4a5c !important;
 }
-/* Hide tab bottom border */
-div[data-testid="stTabs"] > div[role="tablist"]::after,
-div[data-testid="stTabs"] button[role="tab"]::after {
+/* Hide tab bottom border / indicator line */
+div[data-testid="stTabs"] [role="tablist"]::after,
+div[data-testid="stTabs"] button[role="tab"]::after,
+div[data-testid="stTabs"] [data-baseweb="tab-highlight"],
+div[data-testid="stTabs"] [role="tablist"] hr {
     display: none !important;
+    height: 0 !important;
+    border: none !important;
 }
 
 /* ===== Input Fields ===== */
