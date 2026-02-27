@@ -19,6 +19,7 @@ class ScrapedWebsite(BaseModel):
     company_name: str = ""
     pages: list[ScrapedPage] = Field(default_factory=list)
     raw_text_summary: str = ""
+    contact_emails: list[str] = Field(default_factory=list)
 
 
 class NeedAnalysis(BaseModel):

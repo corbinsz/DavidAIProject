@@ -4,6 +4,7 @@ Accepts a URL, discovers key pages (about, services, blog),
 extracts and cleans HTML into structured text content.
 """
 
+import re
 import time
 import logging
 from urllib.parse import urljoin, urlparse
@@ -152,6 +153,60 @@ def _extract_company_name(html: str, url: str) -> str:
     return domain.split(".")[0].capitalize()
 
 
+# Junk email patterns to filter out
+_JUNK_EMAIL_PATTERNS = {
+    "noreply@", "no-reply@", "donotreply@", "mailer-daemon@",
+    "postmaster@", "webmaster@", "hostmaster@",
+}
+_JUNK_EMAIL_DOMAINS = {"example.com", "example.org", "example.net", "test.com", "sentry.io"}
+_JUNK_EMAIL_EXTENSIONS = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp", ".css", ".js"}
+
+# Regex for email addresses: standard addr-spec
+_EMAIL_RE = re.compile(
+    r"[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[a-zA-Z]{2,}",
+)
+
+
+def _extract_emails(html: str) -> list[str]:
+    """
+    Extract contact email addresses from HTML.
+    Scans mailto: links first, then falls back to regex on raw HTML.
+    Deduplicates and filters junk/image addresses.
+    """
+    found: dict[str, None] = {}  # ordered set via dict
+
+    soup = BeautifulSoup(html, "html.parser")
+
+    # 1. mailto: links (highest confidence)
+    for a_tag in soup.find_all("a", href=True):
+        href = a_tag["href"].strip()
+        if href.lower().startswith("mailto:"):
+            email = href[7:].split("?")[0].strip().lower()
+            if email and "@" in email:
+                found[email] = None
+
+    # 2. Regex scan on raw HTML
+    for match in _EMAIL_RE.findall(html):
+        found[match.lower()] = None
+
+    # 3. Filter junk
+    cleaned = []
+    for email in found:
+        # Skip junk prefixes
+        if any(email.startswith(pat) for pat in _JUNK_EMAIL_PATTERNS):
+            continue
+        # Skip junk domains
+        domain = email.split("@", 1)[1] if "@" in email else ""
+        if domain in _JUNK_EMAIL_DOMAINS:
+            continue
+        # Skip addresses that look like file references (e.g. icon@2x.png)
+        if any(email.endswith(ext) for ext in _JUNK_EMAIL_EXTENSIONS):
+            continue
+        cleaned.append(email)
+
+    return cleaned
+
+
 def _discover_links(html: str, base_url: str) -> list[tuple[str, str]]:
     """
     Discover important internal links from the homepage.
@@ -239,6 +294,7 @@ def scrape_website(url: str, use_playwright_fallback: bool = True, progress_call
 
     session = requests.Session()
     pages = []
+    all_emails: dict[str, None] = {}  # ordered set for dedup across pages
 
     # --- Scrape homepage ---
     _log("Fetching homepage...")
@@ -272,6 +328,8 @@ def scrape_website(url: str, use_playwright_fallback: bool = True, progress_call
         content=homepage_text,
         page_type="homepage",
     ))
+    for e in _extract_emails(homepage_html):
+        all_emails[e] = None
     _log(f"Homepage scraped: {len(homepage_text)} chars")
 
     # --- Discover and scrape linked pages ---
@@ -297,6 +355,8 @@ def scrape_website(url: str, use_playwright_fallback: bool = True, progress_call
             content=text,
             page_type=page_type,
         ))
+        for e in _extract_emails(html):
+            all_emails[e] = None
         _log(f"Scraped {page_type}: {len(text)} chars")
 
     # --- Build combined summary ---
@@ -306,11 +366,16 @@ def scrape_website(url: str, use_playwright_fallback: bool = True, progress_call
 
     raw_summary = "\n\n".join(summary_parts)
 
+    contact_emails = list(all_emails)
+    if contact_emails:
+        _log(f"Found {len(contact_emails)} contact email(s): {', '.join(contact_emails)}")
+
     result = ScrapedWebsite(
         base_url=url,
         company_name=company_name,
         pages=pages,
         raw_text_summary=raw_summary,
+        contact_emails=contact_emails,
     )
 
     _log(f"Scraping complete: {len(pages)} pages, {len(raw_summary)} total chars")

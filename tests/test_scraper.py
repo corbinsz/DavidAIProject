@@ -7,6 +7,7 @@ from src.scraper import (
     _extract_text,
     _extract_title,
     _extract_company_name,
+    _extract_emails,
     _discover_links,
     _fetch_page,
     scrape_website,
@@ -215,3 +216,60 @@ class TestScrapeWebsite:
         )
         assert any("Starting scrape" in m for m in messages)
         assert any("Homepage scraped" in m for m in messages)
+
+
+class TestExtractEmails:
+    def test_finds_mailto_links(self):
+        html = """
+        <html><body>
+        <a href="mailto:sales@acme.com">Email us</a>
+        <a href="mailto:support@acme.com?subject=Hello">Support</a>
+        <p>Contact us today!</p>
+        </body></html>
+        """
+        emails = _extract_emails(html)
+        assert "sales@acme.com" in emails
+        assert "support@acme.com" in emails
+
+    def test_finds_text_emails(self):
+        html = """
+        <html><body>
+        <p>Reach out at info@company.org or call us.</p>
+        <p>Our CEO is at ceo@company.org</p>
+        </body></html>
+        """
+        emails = _extract_emails(html)
+        assert "info@company.org" in emails
+        assert "ceo@company.org" in emails
+
+    def test_deduplicates(self):
+        html = """
+        <html><body>
+        <a href="mailto:hello@firm.com">Email</a>
+        <p>Write to hello@firm.com for info.</p>
+        </body></html>
+        """
+        emails = _extract_emails(html)
+        assert emails.count("hello@firm.com") == 1
+
+    def test_filters_junk_emails(self):
+        html = """
+        <html><body>
+        <a href="mailto:noreply@acme.com">Don't reply</a>
+        <a href="mailto:no-reply@acme.com">No reply</a>
+        <p>test@example.com user@test.com icon@2x.png</p>
+        <a href="mailto:real@acme.com">Contact</a>
+        </body></html>
+        """
+        emails = _extract_emails(html)
+        assert "real@acme.com" in emails
+        assert "noreply@acme.com" not in emails
+        assert "no-reply@acme.com" not in emails
+        assert "test@example.com" not in emails
+        assert "user@test.com" not in emails
+        assert "icon@2x.png" not in emails
+
+    def test_empty_when_no_emails(self):
+        html = "<html><body><p>No contact info here.</p></body></html>"
+        emails = _extract_emails(html)
+        assert emails == []

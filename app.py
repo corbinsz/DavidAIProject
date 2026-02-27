@@ -871,10 +871,20 @@ def render_single_mode():
         )
         st.caption("Enter the recipient's email and click send. Requires Gmail credentials in the sidebar. Nothing sends without your explicit confirmation.")
 
+        # Auto-fill from scraped contact emails if available
+        default_to = ""
+        email_help = "The email address of the person you want to reach out to at this company."
+        if result.scraped and result.scraped.contact_emails:
+            default_to = result.scraped.contact_emails[0]
+            if len(result.scraped.contact_emails) > 1:
+                others = ", ".join(result.scraped.contact_emails[1:])
+                email_help += f" Also found: {others}"
+
         to_address = st.text_input(
             "Recipient Email Address",
+            value=default_to,
             placeholder="prospect@company.com",
-            help="The email address of the person you want to reach out to at this company.",
+            help=email_help,
         )
 
         col_send, col_regen = st.columns(2)
